@@ -43,5 +43,5 @@ app.get("/", (req, res) => {
 });
 
 server.listen(port,'0.0.0.0', () => {
-  console.log(`App listening on port http://0.0.0.0:${3000}`);
+  console.log(`For LAN: http://0.0.0.0:${8000}`);
 });
