@@ -2,13 +2,20 @@ const express = require("express");
 const app = express()
 const port = 8000;
 const path = require("path");
+const cors = require("cors");
+app.use(cors());
 
 const http = require("http");
 
 // Server Initialization
 const socketio = require("socket.io");
 const server = http.createServer(app);
-const io = socketio(server);
+const io = socketio(server, {
+  cors: {
+    origin: "*", // Allow all origins (or specify your client URL)
+    methods: ["GET", "POST"]
+  }
+});
 
 // Establishing Connection
 io.on("connection", function (socket) {

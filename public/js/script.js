@@ -1,4 +1,4 @@
-const socket = io();
+const socket = io("https://buddyway.onrender.com");
 
 const map = L.map("map").setView([0, 0], 10);
 
