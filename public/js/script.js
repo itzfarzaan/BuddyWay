@@ -15,10 +15,21 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "BuddyWay"
 }).addTo(map);
 
-// Add this event to detect user interaction with the map
+// Detect ANY map interaction
 map.on('dragstart', function() {
   userHasScrolled = true;
 });
+
+// Add zoom detection
+map.on('zoomstart', function() {
+  userHasScrolled = true;
+});
+
+// Also detect touch events for mobile pinch zooming
+map.on('touchstart', function() {
+  userHasScrolled = true;
+});
+
 
 if (navigator.geolocation) {
   navigator.geolocation.watchPosition((position) => {
@@ -71,18 +82,6 @@ socket.on("user-disconnected", (id) => {
     delete markers[id];
   }
 });
-
-const recenterButton = document.createElement("button");
-recenterButton.innerText = "Recenter";
-recenterButton.style.position = "absolute";
-recenterButton.style.top = "10px";
-recenterButton.style.right = "10px";
-recenterButton.style.padding = "10px";
-recenterButton.style.background = "white";
-recenterButton.style.border = "1px solid black";
-recenterButton.style.cursor = "pointer";
-recenterButton.style.zIndex = 99;
-document.body.appendChild(recenterButton);
 
 recenterButton.addEventListener("click", () => {
   if (userLat && userLng) {
