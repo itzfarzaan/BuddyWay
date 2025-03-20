@@ -1,6 +1,6 @@
 // Initialize socket connection and store the user’s socket ID
-// const socket = io("https://buddyway.onrender.com"); 
-const socket = io(); 
+const socket = io("https://buddyway.onrender.com"); 
+// const socket = io(); 
 let userId = socket.id;
 let userLat = 0;
 let userLng = 0;
