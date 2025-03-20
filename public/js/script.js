@@ -1,9 +1,12 @@
 const socket = io("https://buddyway.onrender.com");
 
+// Add this to store your own socket ID
+let userId = socket.id;
 let userMarker = null;
 let userLat = 0;
 let userLng = 0;
 let firstUpdate = true;
+let userHasScrolled = false; // Track if user has manually moved the map
 const markers = {};
 
 const map = L.map("map").setView([0, 0], 10);
@@ -12,19 +15,20 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "BuddyWay"
 }).addTo(map);
 
+// Add this event to detect user interaction with the map
+map.on('dragstart', function() {
+  userHasScrolled = true;
+});
+
 if (navigator.geolocation) {
   navigator.geolocation.watchPosition((position) => {
     userLat = position.coords.latitude;
     userLng = position.coords.longitude;
 
+    // Only center map on first position update
     if (firstUpdate) {
-      map.setView([userLat, userLng], 16); // Set initial view to user's location
-      firstUpdate = false;
-    }
-
-    // Only recenter the first time (when userMarker is null)
-    if (!userMarker) {
       map.setView([userLat, userLng], 16);
+      firstUpdate = false;
     }
 
     socket.emit("send-location", { latitude: userLat, longitude: userLng });
@@ -37,6 +41,11 @@ if (navigator.geolocation) {
   });
 }
 
+// Get socket ID when connected
+socket.on("connect", () => {
+  userId = socket.id;
+  console.log("Connected with ID:", userId);
+});
 
 socket.on("receive-location", (data) => {
   const { id, latitude, longitude } = data;
@@ -50,9 +59,9 @@ socket.on("receive-location", (data) => {
       .openPopup();
   }
 
-  // Update only user's marker reference
-  if (id === userId) {
-    userMarker = markers[id];
+  // Only auto-center if it's your own marker AND user hasn't scrolled
+  if (id === userId && !userHasScrolled) {
+    map.setView([latitude, longitude], 16);
   }
 });
 
@@ -76,7 +85,8 @@ recenterButton.style.zIndex = 99;
 document.body.appendChild(recenterButton);
 
 recenterButton.addEventListener("click", () => {
-  if (userMarker) {
+  if (userLat && userLng) {
     map.setView([userLat, userLng], 16);
+    userHasScrolled = false; // Reset the scroll state on manual recenter
   }
 });
