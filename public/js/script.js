@@ -22,10 +22,9 @@ if (navigator.geolocation) {
       firstUpdate = false;
     }
 
+    // Only recenter the first time (when userMarker is null)
     if (!userMarker) {
-      userMarker = L.marker([userLat, userLng]).addTo(map);
-    } else {
-      userMarker.setLatLng([userLat, userLng]);
+      map.setView([userLat, userLng], 16);
     }
 
     socket.emit("send-location", { latitude: userLat, longitude: userLng });
@@ -34,15 +33,13 @@ if (navigator.geolocation) {
   }, {
     enableHighAccuracy: true,
     maximumAge: 0,
-    timeout: 5000,
+    timeout: 10000,
   });
 }
 
 
 socket.on("receive-location", (data) => {
   const { id, latitude, longitude } = data;
-
-  if (id === socket.id) return; // Ignore own updates
   
   if (markers[id]) {
     markers[id].setLatLng([latitude, longitude]);  // Update existing marker
@@ -53,7 +50,10 @@ socket.on("receive-location", (data) => {
       .openPopup();
   }
 
-  map.setView([latitude, longitude], 16);
+  // Update only user's marker reference
+  if (id === userId) {
+    userMarker = markers[id];
+  }
 });
 
 socket.on("user-disconnected", (id) => {
@@ -72,6 +72,7 @@ recenterButton.style.padding = "10px";
 recenterButton.style.background = "white";
 recenterButton.style.border = "1px solid black";
 recenterButton.style.cursor = "pointer";
+recenterButton.style.zIndex = 99;
 document.body.appendChild(recenterButton);
 
 recenterButton.addEventListener("click", () => {
