@@ -24,6 +24,10 @@ io.on("connection", function (socket) {
   });
   console.log("New user connected:", socket.id);
 
+  socket.on("user-joined", function (data) {
+    io.emit("user-joined", data);
+  });
+
   // socket.on("message", (data) => {
   //   console.log("Message received:", data);
   //   io.emit("message", data); // Broadcast to all clients
@@ -33,6 +37,7 @@ io.on("connection", function (socket) {
     io.emit("user-disconnected", socket.id);
     console.log("User disconnected:", socket.id);
   });
+  
 });
 
 app.set("view engine", "ejs");

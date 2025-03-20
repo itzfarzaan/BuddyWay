@@ -1,6 +1,6 @@
 // Initialize socket connection and store the user’s socket ID
-const socket = io("https://buddyway.onrender.com"); 
-// const socket = io(); 
+// const socket = io("https://buddyway.onrender.com"); 
+const socket = io(); 
 let userId = socket.id;
 let userLat = 0;
 let userLng = 0;
@@ -8,6 +8,7 @@ let firstUpdate = true;
 let userHasScrolled = false;
 const markers = {};
 const nameID = [];
+let myName = "";
 
 // Initialize and configure the map with Leaflet
 const map = L.map("map").setView([0, 0], 10);
@@ -38,7 +39,7 @@ if (navigator.geolocation) {
       firstUpdate = false;
     }
 
-    socket.emit("send-location", { latitude: userLat, longitude: userLng });
+    socket.emit("send-location", { latitude: userLat, longitude: userLng, name: myName });
   }, (error) => {
     console.error(error);
   }, {
@@ -50,36 +51,57 @@ if (navigator.geolocation) {
 
 // Get socket ID when connected and log it
 socket.on("connect", () => {
-  var name = prompt("Enter your name: ");
+  myName = prompt("Enter your name: ");
   userId = socket.id;
 
-  nameID.push({ name: name, id: socket.id });
-
-  console.log("Connected with Name:", name, "ID:", userId,);
+  // Add your own name to local nameID array
+  nameID.push({ name: myName, id: socket.id });
+  
+  // Send your name immediately on connection
+  socket.emit("user-joined", { id: socket.id, name: myName });
+  
+  console.log("Connected with Name:", myName, "ID:", userId);
 });
 
 // Handle receiving location updates from other users and update their markers
 socket.on("receive-location", (data) => {
-  const { id, latitude, longitude } = data;
+  const { id, latitude, longitude, name } = data;
   
-  var localName = "";
-  for (let i = 0; i < nameID.length; i++){
+  // --------------------------------------------
+  // ------ DISPLAY NAME ON MARKER CODE ---------
+  // --------------------------------------------
+  // Update nameID array with the received name
+  let found = false;
+  for (let i = 0; i < nameID.length; i++) {
     if (nameID[i].id === id) {
-      localName = nameID[i].name;
+      nameID[i].name = name; // Update name if already exists
+      found = true;
       break;
     }
-    else {
-      localName = "Not Found";
-    }
   }
+  
+  // Add new entry if not found
+  if (!found && name) {
+    nameID.push({ id, name });
+  }
+  
+  // Get the name from the array
+  let displayName = "Unknown";
+  for (let i = 0; i < nameID.length; i++) {
+    if (nameID[i].id === id) {
+      displayName = nameID[i].name;
+      break;
+    }
+  } 
 
   // Update or add new marker for the user
   if (markers[id]) {
     markers[id].setLatLng([latitude, longitude]);
+    markers[id].getPopup().setContent(`User: ${displayName}`);
   } else {
     markers[id] = L.marker([latitude, longitude])
       .addTo(map)
-      .bindPopup(`User: ${localName}`)
+      .bindPopup(`User: ${displayName}`)
       .openPopup();
   }
 
@@ -87,6 +109,28 @@ socket.on("receive-location", (data) => {
   if (id === userId && !userHasScrolled) {
     map.setView([latitude, longitude], 16);
   }
+});
+
+// Handle new user joined event
+socket.on("user-joined", (data) => {
+  const { id, name } = data;
+  
+  // Add to nameID array if not already present
+  let found = false;
+  for (let i = 0; i < nameID.length; i++) {
+    if (nameID[i].id === id) {
+      nameID[i].name = name;
+      found = true;
+      break;
+    }
+  }
+  
+  if (!found) {
+    nameID.push({ id, name });
+  }
+  
+  // Send your own name to the new user
+  socket.emit("user-joined", { id: userId, name: myName });
 });
 
 // Handle user disconnection and remove their marker from the map
