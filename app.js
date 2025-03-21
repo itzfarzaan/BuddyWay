@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express()
-const port = 8000;
+const port = 8001;
 const path = require("path");
 const cors = require("cors");
 const fs = require("fs");
@@ -68,7 +68,8 @@ io.on("connection", function (socket) {
             name: userName,
             isHost: true
           }
-        }
+        },
+        commonDestination: null // Add common destination property
       };
       
       // Join socket to session room
@@ -125,6 +126,14 @@ io.on("connection", function (socket) {
         name: userName
       });
       
+      // If there's a common destination, send it to the new host
+      if (sessions[sessionCode].commonDestination) {
+        socket.emit("common-destination-update", {
+          sessionCode,
+          destination: sessions[sessionCode].commonDestination
+        });
+      }
+      
       // Save sessions to file
       saveSessions();
     }
@@ -175,6 +184,14 @@ io.on("connection", function (socket) {
         id: userId,
         name: userName
       });
+      
+      // If there's a common destination, send it to the new member
+      if (sessions[sessionCode].commonDestination) {
+        socket.emit("common-destination-update", {
+          sessionCode,
+          destination: sessions[sessionCode].commonDestination
+        });
+      }
       
       // Save sessions to file
       saveSessions();
@@ -249,6 +266,50 @@ io.on("connection", function (socket) {
         longitude, 
         name 
       });
+    }
+  });
+
+  // Add handler for setting common destination (host only)
+  socket.on("set-common-destination", function (data) {
+    const { sessionCode, hostId, destination } = data;
+    
+    // Verify session exists and user is host
+    if (sessions[sessionCode] && sessions[sessionCode].host === hostId) {
+      console.log(`Setting common destination for session ${sessionCode}`);
+      
+      // Update common destination
+      sessions[sessionCode].commonDestination = destination;
+      
+      // Broadcast to all session members
+      io.to(sessionCode).emit("common-destination-update", {
+        sessionCode,
+        destination
+      });
+      
+      // Save sessions to file
+      saveSessions();
+    }
+  });
+
+  // Add handler for clearing common destination (host only)
+  socket.on("clear-common-destination", function (data) {
+    const { sessionCode, hostId } = data;
+    
+    // Verify session exists and user is host
+    if (sessions[sessionCode] && sessions[sessionCode].host === hostId) {
+      console.log(`Clearing common destination for session ${sessionCode}`);
+      
+      // Clear common destination
+      sessions[sessionCode].commonDestination = null;
+      
+      // Broadcast to all session members
+      io.to(sessionCode).emit("common-destination-update", {
+        sessionCode,
+        destination: null
+      });
+      
+      // Save sessions to file
+      saveSessions();
     }
   });
 
@@ -333,6 +394,7 @@ app.get("/map", (req, res) => {
   res.render("index");
 });
 
-server.listen(port, () => {
-  console.log(`Server running on port: ${port}`);
+const PORT = process.env.PORT || 8001; 
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

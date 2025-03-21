@@ -220,61 +220,167 @@ html, body {
   border-bottom: none;
 }
 
-#membersList .member-icon {
-  width: 24px;
-  height: 24px;
+.member-icon {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #e8eaed;
-  color: #666;
+  background: #4285f4;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 10px;
-  font-size: 12px;
+  font-weight: 500;
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 
-#membersList .member-name {
-  flex: 1;
+.member-name {
+  flex-grow: 1;
   font-size: 14px;
+  position: relative;
 }
 
-#membersList .host-badge {
-  font-size: 10px;
-  background: #4285f4;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 10px;
-  margin-left: 8px;
+.member-actions {
+  display: flex;
+  gap: 6px;
 }
 
-#membersList .self-badge {
+.member-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f8f9fa;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.member-action-btn:hover {
+  background: #e8eaed;
+  color: #4285f4;
+}
+
+.member-action-btn.navigate-to {
+  color: #0f9d58;
+}
+
+.member-action-btn.navigate-to:hover {
+  background: #e8f5e9;
+  color: #0f9d58;
+}
+
+.host-badge, .self-badge {
+  display: inline-block;
   font-size: 10px;
-  background: #34a853;
-  color: white;
   padding: 2px 6px;
   border-radius: 10px;
-  margin-left: 8px;
+  margin-left: 6px;
+  font-weight: 500;
+}
+
+.host-badge {
+  background: #ffebee;
+  color: #f44336;
+}
+
+.self-badge {
+  background: #e8f0fe;
+  color: #4285f4;
 }
 
 /* Toast notification */
 .toast {
   position: fixed;
-  bottom: 20px;
+  bottom: 30px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(100px);
   background: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 10px 20px;
+  padding: 12px 24px;
   border-radius: 4px;
   font-size: 14px;
   z-index: 2000;
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: all 0.3s;
 }
 
 .toast.show {
+  transform: translateX(-50%) translateY(0);
   opacity: 1;
 }
+
+/* New styles for the added features */
+.action-btn {
+  position: absolute;
+  right: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.action-btn:hover {
+  color: #4285f4;
+}
+
+.common-destination-controls {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.common-destination-controls h4 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+}
+
+#commonDestinationNotification {
+  margin-top: 16px;
+  padding: 12px;
+  background: #e8f0fe;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #4285f4;
+}
+
+.non-host-only {
+  display: none;
+}
+
+body:not(.is-host) .non-host-only {
+  display: block;
+}
+
+/* Styles for member route lines */
+.member-route {
+  opacity: 0.8;
+}
+
+/* Color palette for member routes */
+.color-1 { color: #4285f4; } /* Blue */
+.color-2 { color: #0f9d58; } /* Green */
+.color-3 { color: #f4b400; } /* Yellow */
+.color-4 { color: #db4437; } /* Red */
+.color-5 { color: #673ab7; } /* Purple */
+.color-6 { color: #ff6d00; } /* Orange */
+.color-7 { color: #00bcd4; } /* Cyan */
+.color-8 { color: #795548; } /* Brown */
 
 /* Override Leaflet Routing Machine styles */
 .leaflet-routing-container {

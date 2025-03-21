@@ -41,6 +41,9 @@
         <button class="map-picker-btn" id="startLocationPicker">
           <i class="fas fa-map-marker-alt"></i>
         </button>
+        <button class="action-btn" id="setCurrentLocationAsStart" title="Use my current location">
+          <i class="fas fa-location-crosshairs"></i>
+        </button>
       </div>
       <div class="input-group">
         <input type="text" id="endLocation" placeholder="Choose destination">
@@ -51,6 +54,21 @@
       <div class="button-group">
         <button id="startNavigation" class="nav-button">Start Navigation</button>
         <button id="clearRoute" class="nav-button">Clear</button>
+      </div>
+      
+      <!-- Host-only common destination controls -->
+      <div class="host-only common-destination-controls">
+        <h4>Common Destination</h4>
+        <div class="button-group">
+          <button id="setCommonDestination" class="nav-button">Set for All</button>
+          <button id="clearCommonDestination" class="nav-button">Clear for All</button>
+        </div>
+        <p class="hint">As host, you can set a common destination for all session members</p>
+      </div>
+      
+      <!-- Common destination notification for non-hosts -->
+      <div id="commonDestinationNotification" class="non-host-only" style="display: none;">
+        <p>The host has set a common destination for all members</p>
       </div>
     </div>
   </div>
