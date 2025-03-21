@@ -49,6 +49,11 @@ function saveSessions() {
   }
 }
 
+// Function to generate unique session code
+function generateSessionCode() {
+  return Math.random().toString(36).substr(2, 9);
+}
+
 // Establishing Connection
 io.on("connection", function (socket) {
   console.log("New user connected:", socket.id);
@@ -60,7 +65,7 @@ io.on("connection", function (socket) {
     // Create session if it doesn't exist
     if (!sessions[sessionCode]) {
       sessions[sessionCode] = {
-        host: hostId,
+        hostId: hostId,
         createdAt: Date.now(),
         members: {
           [hostId]: {
@@ -70,7 +75,7 @@ io.on("connection", function (socket) {
           }
         },
         commonDestination: null,
-        commonDestinationActive: false // Add common destination active property
+        commonDestinationActive: false
       };
       
       // Join socket to session room
@@ -104,9 +109,9 @@ io.on("connection", function (socket) {
       };
       
       // If this is a different host, update the host ID
-      if (sessions[sessionCode].host !== hostId) {
+      if (sessions[sessionCode].hostId !== hostId) {
         console.log(`New host for session: ${sessionCode} - ${userName} (${hostId})`);
-        sessions[sessionCode].host = hostId;
+        sessions[sessionCode].hostId = hostId;
       }
       
       // Join socket to session room
@@ -189,6 +194,10 @@ io.on("connection", function (socket) {
       
       // If there's a common destination, send it to the new member
       if (sessions[sessionCode].commonDestination) {
+        console.log(`Sending common destination to new member ${userName} (${userId}):`, 
+          sessions[sessionCode].commonDestination, 
+          "Active:", sessions[sessionCode].commonDestinationActive);
+          
         socket.emit("common-destination-update", {
           sessionCode,
           destination: sessions[sessionCode].commonDestination,
@@ -242,7 +251,7 @@ io.on("connection", function (socket) {
   socket.on("end-session", function (data) {
     const { sessionCode, hostId } = data;
     
-    if (sessions[sessionCode] && sessions[sessionCode].host === hostId) {
+    if (sessions[sessionCode] && sessions[sessionCode].hostId === hostId) {
       // Notify all members that session ended
       io.to(sessionCode).emit("session-ended");
       
@@ -276,16 +285,31 @@ io.on("connection", function (socket) {
   socket.on("set-common-destination", function (data) {
     const { sessionCode, hostId, destination, active } = data;
     
-    if (!sessionCode || !hostId || !destination) return;
+    console.log("Setting common destination:", data);
     
-    if (!sessions[sessionCode]) return;
+    if (!sessionCode || !hostId || !destination) {
+      console.log("Missing required data for set-common-destination");
+      return;
+    }
+    
+    if (!sessions[sessionCode]) {
+      console.log("Session not found:", sessionCode);
+      return;
+    }
     
     // Only allow host to set common destination
-    if (sessions[sessionCode].host !== hostId) return;
+    if (sessions[sessionCode].hostId !== hostId) {
+      console.log("User is not host. Session hostId:", sessions[sessionCode].hostId, "User hostId:", hostId);
+      return;
+    }
     
     // Update session with common destination
     sessions[sessionCode].commonDestination = destination;
     sessions[sessionCode].commonDestinationActive = active || false;
+    
+    console.log("Updated session with common destination:", 
+      sessions[sessionCode].commonDestination, 
+      "Active:", sessions[sessionCode].commonDestinationActive);
     
     // Broadcast to all members in session
     io.to(sessionCode).emit("common-destination-update", {
@@ -307,7 +331,7 @@ io.on("connection", function (socket) {
     if (!sessions[sessionCode]) return;
     
     // Only allow host to clear common destination
-    if (sessions[sessionCode].host !== hostId) return;
+    if (sessions[sessionCode].hostId !== hostId) return;
     
     // Clear common destination
     sessions[sessionCode].commonDestination = null;
@@ -329,7 +353,7 @@ io.on("connection", function (socket) {
     for (const sessionCode in sessions) {
       if (sessions[sessionCode].members[socket.id]) {
         const userName = sessions[sessionCode].members[socket.id].name;
-        const isHost = sessions[sessionCode].host === socket.id;
+        const isHost = sessions[sessionCode].hostId === socket.id;
         
         // Remove from session
         delete sessions[sessionCode].members[socket.id];

@@ -1,13 +1,13 @@
-// Initialize socket connection
-let userName = '';
+// Socket is already initialized in home.ejs
+// const socket = io();
 
 // Add connection debugging
 socket.on('connect', () => {
-  console.log('Socket connected with ID:', socket.id);
+  console.log('Home page: Socket connected with ID:', socket.id);
 });
 
 socket.on('connect_error', (error) => {
-  console.error('Socket connection error:', error);
+  console.error('Home page: Socket connection error:', error);
 });
 
 // DOM Elements
@@ -17,6 +17,8 @@ const sessionCodeInput = document.getElementById('sessionCode');
 const nameModal = document.getElementById('nameModal');
 const userNameInput = document.getElementById('userName');
 const continueBtn = document.getElementById('continueBtn');
+
+let userName = '';
 
 // Show name modal
 function showNameModal(action, sessionCode = null) {
@@ -69,6 +71,7 @@ function createNewSession() {
   localStorage.setItem('buddyway_session', JSON.stringify({
     sessionCode,
     userName,
+    userId: socket.id,
     isHost: true
   }));
   
@@ -115,6 +118,7 @@ function joinExistingSession(sessionCode) {
       localStorage.setItem('buddyway_session', JSON.stringify({
         sessionCode,
         userName,
+        userId: socket.id,
         isHost: false
       }));
       
@@ -152,49 +156,45 @@ sessionCodeInput.addEventListener('keyup', (e) => {
 });
 
 // Check if user was previously in a session
-window.addEventListener('load', () => {
-  const savedSession = localStorage.getItem('buddyway_session');
+const savedSession = localStorage.getItem('buddyway_session');
+if (savedSession) {
+  const sessionData = JSON.parse(savedSession);
   
-  if (savedSession) {
-    const sessionData = JSON.parse(savedSession);
+  // Show rejoin option
+  const rejoin = confirm(`Do you want to rejoin your previous session (${sessionData.sessionCode})?`);
+  
+  if (rejoin) {
+    userName = sessionData.userName;
     
-    // Ask if user wants to rejoin their previous session
-    const rejoin = confirm(`Do you want to rejoin your previous session (${sessionData.sessionCode})?`);
-    
-    if (rejoin) {
-      userName = sessionData.userName;
-      
-      if (sessionData.isHost) {
-        // Emit create session event (rejoin as host)
-        socket.emit('create-session', {
-          sessionCode: sessionData.sessionCode,
-          hostId: socket.id,
-          userName
-        });
-      } else {
-        // Emit join session event
-        socket.emit('join-session', {
-          sessionCode: sessionData.sessionCode,
-          userId: socket.id,
-          userName
-        });
-        
-        // Listen for session join response
-        socket.once('session-join-response', (response) => {
-          if (!response.success) {
-            // Session no longer exists, clear localStorage
-            localStorage.removeItem('buddyway_session');
-            alert('Your previous session is no longer available.');
-            return;
-          }
-        });
-      }
-      
-      // Redirect to map page
-      window.location.href = `/map?session=${sessionData.sessionCode}`;
+    if (sessionData.isHost) {
+      // Emit create session event (rejoin as host)
+      socket.emit('create-session', {
+        sessionCode: sessionData.sessionCode,
+        hostId: socket.id,
+        userName
+      });
     } else {
-      // Clear previous session data
-      localStorage.removeItem('buddyway_session');
+      // Emit join session event
+      socket.emit('join-session', {
+        sessionCode: sessionData.sessionCode,
+        userId: socket.id,
+        userName
+      });
+      
+      // Listen for session join response
+      socket.once('session-join-response', (response) => {
+        if (!response.success) {
+          // Session no longer exists
+          localStorage.removeItem('buddyway_session');
+          alert('Your previous session has ended. Please join a new session.');
+        }
+      });
     }
+    
+    // Redirect to map page
+    window.location.href = `/map?session=${sessionData.sessionCode}`;
+  } else {
+    // Clear saved session
+    localStorage.removeItem('buddyway_session');
   }
-});
+}

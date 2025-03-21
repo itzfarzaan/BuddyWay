@@ -1,5 +1,5 @@
 // Initialize socket connection
-let userId = socket.id;
+let userId = null; // Initialize as null, will be set when joining session
 let userLat = 0;
 let userLng = 0;
 let firstUpdate = true;
@@ -15,10 +15,7 @@ let endMarker = null;
 // Add connection debugging
 socket.on('connect', () => {
   console.log('Map page: Socket connected with ID:', socket.id);
-});
-
-socket.on('connect_error', (error) => {
-  console.error('Map page: Socket connection error:', error);
+  // Don't set userId here, it will be set when joining session
 });
 
 // Session variables
@@ -63,12 +60,22 @@ function getSessionInfo() {
     // Set session variables
     currentSession = sessionCode;
     myName = sessionData.userName;
+    userId = sessionData.userId;
     isHost = sessionData.isHost;
+    
+    console.log("Session info loaded from localStorage:", {
+      currentSession,
+      myName,
+      userId,
+      isHost
+    });
     
     // Update UI
     document.getElementById('sessionCodeDisplay').textContent = currentSession;
     if (isHost) {
       document.body.classList.add('is-host');
+    } else {
+      document.body.classList.remove('is-host');
     }
     
     return true;
@@ -267,8 +274,6 @@ function updateMembersList() {
 
 // Handle connection
 socket.on("connect", () => {
-  userId = socket.id;
-  
   // Check if we have session info
   if (getSessionInfo()) {
     // Join session
@@ -282,6 +287,46 @@ socket.on("connect", () => {
     // Setup location tracking
     setupLocationTracking();
   }
+});
+
+// When session is joined
+socket.on("session-joined", (data) => {
+  console.log("Session joined:", data);
+  
+  // Set session variables
+  currentSession = data.sessionCode;
+  userId = data.id;
+  myName = data.name;
+  isHost = data.isHost;
+  
+  console.log("Session variables set - isHost:", isHost, "userId:", userId);
+  
+  // Update UI
+  document.getElementById('sessionCodeDisplay').textContent = currentSession;
+  if (isHost) {
+    document.body.classList.add('is-host');
+  } else {
+    document.body.classList.remove('is-host');
+  }
+  
+  // Update members list
+  for (const memberId in data.members) {
+    const member = data.members[memberId];
+    sessionMembers[memberId] = member;
+    
+    // Add to members list
+    addMemberToList(memberId, member);
+  }
+  
+  // Start location tracking
+  setupLocationTracking();
+  
+  // Setup location pickers
+  setupLocationPicker('pickStartLocation', 'start');
+  setupLocationPicker('pickEndLocation', 'end');
+  
+  // Show success toast
+  showToast(`Joined session: ${currentSession}`, 3000);
 });
 
 // Handle session members update
@@ -375,12 +420,16 @@ socket.on("session-ended", () => {
 
 // Handle common destination updates
 socket.on("common-destination-update", (data) => {
+  console.log("Received common-destination-update:", data);
+  
   if (data.sessionCode !== currentSession) return;
   
   if (data.destination) {
     commonDestination = data.destination;
     hasCommonDestination = true;
     commonDestinationActive = data.active || false;
+    
+    console.log("Common destination updated:", commonDestination, "Active:", commonDestinationActive);
     
     // Show notification for non-hosts
     if (!isHost) {
@@ -389,6 +438,8 @@ socket.on("common-destination-update", (data) => {
       
       // If toggle is active, force update the end marker for non-hosts
       if (commonDestinationActive) {
+        console.log("Applying common destination for non-host");
+        
         // Set end location input
         document.getElementById('endLocation').value = 'Common Destination';
         
@@ -407,7 +458,7 @@ socket.on("common-destination-update", (data) => {
             startMarker.setLatLng([userLat, userLng]);
           } else {
             startMarker = L.marker([userLat, userLng], {
-              draggable: !commonDestinationActive // Only draggable if common destination is not active
+              draggable: false
             }).addTo(map);
           }
           document.getElementById('startLocation').value = 'My Location';
