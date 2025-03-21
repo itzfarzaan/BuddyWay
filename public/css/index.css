@@ -4,35 +4,313 @@
   box-sizing: border-box;
 }
 
-html,body{
+html, body {
+  margin: 0;
+  padding: 0;
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
-
-/* #map {
-  width: 70%; 
-  height: 70%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); 
-  z-index: 98;
-  border: 2px solid black; 
-} */
 
 #map {
   width: 100%;
   height: 100%;
-  z-index: 98;
+  z-index: 1;
+}
+
+.navigation-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  width: 320px;
+}
+
+.search-box {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.input-group {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-group input:focus {
+  border-color: #4285f4;
+}
+
+.map-picker-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.map-picker-btn:hover {
+  color: #4285f4;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nav-button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#startNavigation {
+  background: #4285f4;
+  color: white;
+}
+
+#startNavigation:hover {
+  background: #3367d6;
+}
+
+#clearRoute {
+  background: #f8f9fa;
+  color: #3c4043;
+}
+
+#clearRoute:hover {
+  background: #e8eaed;
 }
 
 #recenterButton {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 10px;
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 40px;
+  height: 40px;
   background: white;
-  border: 1px solid black;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: all 0.2s;
+}
+
+#recenterButton:hover {
+  background: #f8f9fa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Session info panel */
+.session-info {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  width: 280px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.session-header {
+  padding: 16px;
+  background: #4285f4;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-header h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.session-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.session-actions button {
+  background: none;
+  border: none;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.session-actions button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+#endSession {
+  color: #ff5252;
+}
+
+.host-only {
+  display: none;
+}
+
+.is-host .host-only {
+  display: flex;
+}
+
+.session-members {
+  padding: 16px;
+}
+
+.session-members h4 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+#membersList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#membersList li {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+#membersList li:last-child {
+  border-bottom: none;
+}
+
+#membersList .member-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e8eaed;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  font-size: 12px;
+}
+
+#membersList .member-name {
+  flex: 1;
+  font-size: 14px;
+}
+
+#membersList .host-badge {
+  font-size: 10px;
+  background: #4285f4;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
+#membersList .self-badge {
+  font-size: 10px;
+  background: #34a853;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+/* Override Leaflet Routing Machine styles */
+.leaflet-routing-container {
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  max-height: 400px;
+  overflow-y: auto;
+  width: 320px;
+  margin-top: 10px;
+}
+
+.leaflet-routing-alt {
+  max-height: none !important;
+}
+
+.leaflet-routing-geocoder input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .navigation-container, .session-info {
+    width: calc(100% - 40px);
+  }
+  
+  .session-info {
+    top: auto;
+    bottom: 80px;
+  }
+  
+  .navigation-container {
+    top: 80px;
+  }
 }

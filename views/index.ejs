@@ -3,19 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BuddyWay</title>
+  <title>BuddyWay - Session Map</title>
   <link rel="stylesheet" href="/css/index.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
 
 <body>
   <div id="map"></div>
 
-  <button id="recenterButton">Recenter</button>
+  <div class="session-info">
+    <div class="session-header">
+      <h3>Session: <span id="sessionCodeDisplay"></span></h3>
+      <div class="session-actions">
+        <button id="copySessionCode" title="Copy session code">
+          <i class="fas fa-copy"></i>
+        </button>
+        <button id="leaveSession" title="Leave session">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+        <button id="endSession" title="End session" class="host-only">
+          <i class="fas fa-times-circle"></i>
+        </button>
+      </div>
+    </div>
+    <div class="session-members">
+      <h4>Members</h4>
+      <ul id="membersList"></ul>
+    </div>
+  </div>
+
+  <div class="navigation-container">
+    <div class="search-box">
+      <div class="input-group">
+        <input type="text" id="startLocation" placeholder="Choose starting point" readonly>
+        <button class="map-picker-btn" id="startLocationPicker">
+          <i class="fas fa-map-marker-alt"></i>
+        </button>
+      </div>
+      <div class="input-group">
+        <input type="text" id="endLocation" placeholder="Choose destination">
+        <button class="map-picker-btn" id="endLocationPicker">
+          <i class="fas fa-map-marker-alt"></i>
+        </button>
+      </div>
+      <div class="button-group">
+        <button id="startNavigation" class="nav-button">Start Navigation</button>
+        <button id="clearRoute" class="nav-button">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="recenterButton">
+    <i class="fas fa-location-crosshairs"></i>
+  </button>
+
   <!-- LEAFLET SCRIPT-->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
   <!-- SOCKET.IO SCRIPT-->
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
+  <script>
+    // Initialize socket connection with explicit configuration
+    const socket = io({
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000
+    });
+  </script>
   <!-- SCRIPT -->
   <script src="/js/script.js"></script>
 </body>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuddyWay - Location Sharing</title>
+  <link rel="stylesheet" href="/css/home.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <div class="logo">
+        <i class="fas fa-map-marker-alt"></i>
+        <h1>BuddyWay</h1>
+      </div>
+      <p class="tagline">Real-time location sharing with your buddies</p>
+      
+      <div class="action-cards">
+        <div class="card create-session">
+          <div class="card-icon">
+            <i class="fas fa-plus-circle"></i>
+          </div>
+          <h2>Create a Session</h2>
+          <p>Start a new location sharing session and invite others to join</p>
+          <button id="createSessionBtn" class="btn primary">Create Session</button>
+        </div>
+        
+        <div class="card join-session">
+          <div class="card-icon">
+            <i class="fas fa-users"></i>
+          </div>
+          <h2>Join a Session</h2>
+          <p>Enter a 6-digit code to join an existing session</p>
+          <div class="join-form">
+            <input type="text" id="sessionCode" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}">
+            <button id="joinSessionBtn" class="btn secondary">Join</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <footer>
+      <p>&copy; 2025 BuddyWay - Share your location with friends and family</p>
+    </footer>
+  </div>
+  
+  <!-- Modal for name input -->
+  <div id="nameModal" class="modal">
+    <div class="modal-content">
+      <h2>What's your name?</h2>
+      <p>Please enter your name to continue</p>
+      <input type="text" id="userName" placeholder="Your name">
+      <button id="continueBtn" class="btn primary">Continue</button>
+    </div>
+  </div>
+
+  <!-- SOCKET.IO SCRIPT-->
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
+  <script>
+    // Initialize socket connection with explicit configuration
+    const socket = io({
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000
+    });
+  </script>
+  <!-- SCRIPT -->
+  <script src="/js/home.js"></script>
+</body>
+</html>
