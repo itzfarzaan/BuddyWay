@@ -1,6 +1,5 @@
 const express = require("express");
 const app = express()
-const port = 8002;
 const path = require("path");
 const cors = require("cors");
 const fs = require("fs");
@@ -428,7 +427,17 @@ app.get("/map", (req, res) => {
   res.render("index");
 });
 
-const PORT = process.env.PORT || 8002;
-server.listen(PORT, () => {
-  console.log(`BuddyWay server started on port ${PORT}`);
+// Parse command line arguments for port
+const args = process.argv.slice(2);
+let port = process.env.PORT || 8002;
+
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--port' && i + 1 < args.length) {
+    port = parseInt(args[i + 1], 10);
+    break;
+  }
+}
+
+server.listen(port, () => {
+  console.log(`BuddyWay server started on port ${port}`);
 });

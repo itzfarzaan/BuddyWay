@@ -846,7 +846,8 @@ if (document.getElementById('commonDestinationToggle')) {
   });
 }
 
-// Host-only common destination controls
+// Remove event listeners for buttons we removed from the UI
+// But keep the functionality in case they're added back later
 if (document.getElementById('setCommonDestination')) {
   document.getElementById('setCommonDestination').addEventListener('click', () => {
     if (!isHost) return;
@@ -894,14 +895,20 @@ if (document.getElementById('clearCommonDestination')) {
   });
 }
 
-// Mobile panel toggles
+// Mobile panel toggles - improved for better UX
 document.getElementById('navigationToggle').addEventListener('click', () => {
   document.body.classList.toggle('navigation-collapsed');
   const icon = document.querySelector('#navigationToggle i');
   if (document.body.classList.contains('navigation-collapsed')) {
-    icon.className = 'fas fa-chevron-up';
-  } else {
     icon.className = 'fas fa-chevron-down';
+  } else {
+    icon.className = 'fas fa-chevron-up';
+  }
+  
+  // If opening navigation panel, close members panel
+  if (!document.body.classList.contains('navigation-collapsed')) {
+    document.body.classList.add('members-collapsed');
+    document.querySelector('#membersToggle i').className = 'fas fa-chevron-up';
   }
 });
 
@@ -909,9 +916,15 @@ document.getElementById('membersToggle').addEventListener('click', () => {
   document.body.classList.toggle('members-collapsed');
   const icon = document.querySelector('#membersToggle i');
   if (document.body.classList.contains('members-collapsed')) {
-    icon.className = 'fas fa-chevron-down';
-  } else {
     icon.className = 'fas fa-chevron-up';
+  } else {
+    icon.className = 'fas fa-chevron-down';
+  }
+  
+  // If opening members panel, close navigation panel
+  if (!document.body.classList.contains('members-collapsed')) {
+    document.body.classList.add('navigation-collapsed');
+    document.querySelector('#navigationToggle i').className = 'fas fa-chevron-down';
   }
 });
 
