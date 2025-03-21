@@ -59,7 +59,14 @@
       <!-- Host-only common destination controls -->
       <div class="host-only common-destination-controls">
         <h4>Common Destination</h4>
-        <div class="button-group">
+        <div class="toggle-container">
+          <label class="toggle-switch">
+            <input type="checkbox" id="commonDestinationToggle">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label">Enable for all members</span>
+        </div>
+        <div class="button-group common-destination-buttons">
           <button id="setCommonDestination" class="nav-button">Set for All</button>
           <button id="clearCommonDestination" class="nav-button">Clear for All</button>
         </div>
@@ -68,13 +75,22 @@
       
       <!-- Common destination notification for non-hosts -->
       <div id="commonDestinationNotification" class="non-host-only" style="display: none;">
-        <p>The host has set a common destination for all members</p>
+        <p><i class="fas fa-info-circle"></i> The host has set a common destination for all members</p>
       </div>
     </div>
   </div>
 
   <button id="recenterButton">
     <i class="fas fa-location-crosshairs"></i>
+  </button>
+  
+  <!-- Mobile toggle buttons -->
+  <button class="panel-toggle navigation-toggle" id="navigationToggle">
+    <i class="fas fa-chevron-down"></i>
+  </button>
+  
+  <button class="panel-toggle members-toggle" id="membersToggle">
+    <i class="fas fa-chevron-up"></i>
   </button>
 
   <!-- LEAFLET SCRIPT-->

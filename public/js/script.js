@@ -34,6 +34,7 @@ let colorIndex = 1;
 // Common destination
 let hasCommonDestination = false;
 let commonDestination = null;
+let commonDestinationActive = false; // Track if common destination mode is active
 
 // Get session info from URL and localStorage
 function getSessionInfo() {
@@ -211,7 +212,14 @@ function updateMembersList() {
       recenterBtn.innerHTML = '<i class="fas fa-crosshairs"></i>';
       recenterBtn.addEventListener('click', () => {
         if (markers[memberId]) {
-          map.setView(markers[memberId].getLatLng(), 16);
+          const pos = markers[memberId].getLatLng();
+          if (pos && typeof pos.lat === 'function' && typeof pos.lng === 'function') {
+            map.setView([pos.lat(), pos.lng()], 16);
+          } else if (pos && typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+            map.setView([pos.lat, pos.lng], 16);
+          } else {
+            console.error("Invalid marker position for member:", memberId);
+          }
         }
       });
       
@@ -372,25 +380,56 @@ socket.on("common-destination-update", (data) => {
   if (data.destination) {
     commonDestination = data.destination;
     hasCommonDestination = true;
+    commonDestinationActive = data.active || false;
     
     // Show notification for non-hosts
     if (!isHost) {
       document.getElementById('commonDestinationNotification').style.display = 'block';
       showToast("Host has set a common destination for all members", 3000);
-    }
-    
-    // Update end location input
-    document.getElementById('endLocation').value = 'Common Destination';
-    
-    // Create or update end marker
-    if (endMarker) {
-      endMarker.setLatLng([commonDestination.lat, commonDestination.lng]);
-    } else {
-      endMarker = L.marker([commonDestination.lat, commonDestination.lng], {
-        draggable: isHost // Only host can move the common destination
-      }).addTo(map);
       
-      if (isHost) {
+      // If toggle is active, force update the end marker for non-hosts
+      if (commonDestinationActive) {
+        // Set end location input
+        document.getElementById('endLocation').value = 'Common Destination';
+        
+        // Create or update end marker
+        if (endMarker) {
+          endMarker.setLatLng([commonDestination.lat, commonDestination.lng]);
+        } else {
+          endMarker = L.marker([commonDestination.lat, commonDestination.lng], {
+            draggable: false // Non-hosts cannot move the common destination
+          }).addTo(map);
+        }
+        
+        // Update route with current location as start
+        if (userLat && userLng) {
+          if (startMarker) {
+            startMarker.setLatLng([userLat, userLng]);
+          } else {
+            startMarker = L.marker([userLat, userLng], {
+              draggable: !commonDestinationActive // Only draggable if common destination is not active
+            }).addTo(map);
+          }
+          document.getElementById('startLocation').value = 'My Location';
+        }
+        
+        // Update route
+        updateRoute();
+      }
+    } else {
+      // For host, update the toggle state
+      if (document.getElementById('commonDestinationToggle')) {
+        document.getElementById('commonDestinationToggle').checked = commonDestinationActive;
+      }
+      
+      // Create or update end marker for host
+      if (endMarker) {
+        endMarker.setLatLng([commonDestination.lat, commonDestination.lng]);
+      } else {
+        endMarker = L.marker([commonDestination.lat, commonDestination.lng], {
+          draggable: true // Host can always move the marker
+        }).addTo(map);
+        
         endMarker.on('dragend', function(e) {
           const pos = e.target.getLatLng();
           commonDestination = pos;
@@ -399,20 +438,27 @@ socket.on("common-destination-update", (data) => {
           socket.emit("set-common-destination", {
             sessionCode: currentSession,
             hostId: userId,
-            destination: pos
+            destination: pos,
+            active: commonDestinationActive
           });
           
           updateRoute();
         });
       }
+      
+      // Update end location input
+      document.getElementById('endLocation').value = 'Common Destination';
     }
-    
-    // Update route
-    updateRoute();
   } else {
     // Common destination cleared
     hasCommonDestination = false;
     commonDestination = null;
+    commonDestinationActive = false;
+    
+    // Update toggle state for host
+    if (isHost && document.getElementById('commonDestinationToggle')) {
+      document.getElementById('commonDestinationToggle').checked = false;
+    }
     
     // Hide notification for non-hosts
     if (!isHost) {
@@ -430,6 +476,11 @@ socket.on("common-destination-update", (data) => {
           map.removeControl(routingControl);
           routingControl = null;
         }
+      }
+      
+      // Make start marker draggable again
+      if (startMarker) {
+        startMarker.dragging.enable();
       }
     }
   }
@@ -516,7 +567,7 @@ function updateRoute() {
       routeWhileDragging: true,
       addWaypoints: false,
       draggableWaypoints: false,
-      fitSelectedRoutes: true,
+      fitSelectedRoutes: false, // Don't auto-fit to avoid map jumping
       lineOptions: {
         styles: [{ color: routeColor, weight: 6, opacity: 0.8 }]
       },
@@ -525,12 +576,19 @@ function updateRoute() {
     
     // Share route with other members
     if (currentSession) {
-      // We don't need to send the actual route data to the server
-      // Just inform others that we have a route so they can request it if needed
+      // Inform others that we have a route
       socket.emit("member-has-route", {
         sessionCode: currentSession,
         userId: userId,
-        hasRoute: true
+        hasRoute: true,
+        startPoint: {
+          lat: start.lat,
+          lng: start.lng
+        },
+        endPoint: {
+          lat: end.lat,
+          lng: end.lng
+        }
       });
     }
   }
@@ -542,9 +600,15 @@ function setupLocationPicker(inputId, markerId) {
   const input = button.previousElementSibling;
 
   button.addEventListener('click', () => {
-    // Don't allow changing end location if common destination is set and user is not host
-    if (hasCommonDestination && !isHost && markerId === 'end') {
+    // Don't allow changing end location if common destination is active and user is not host
+    if (commonDestinationActive && !isHost && markerId === 'end') {
       showToast("The host has set a common destination for all members", 3000);
+      return;
+    }
+    
+    // Don't allow changing start location if common destination is active (for anyone)
+    if (commonDestinationActive && markerId === 'start' && !isHost) {
+      showToast("In common destination mode, your current location is always used as the starting point", 3000);
       return;
     }
     
@@ -559,7 +623,7 @@ function setupLocationPicker(inputId, markerId) {
           startMarker.setLatLng([lat, lng]);
         } else {
           startMarker = L.marker([lat, lng], {
-            draggable: true
+            draggable: !commonDestinationActive || isHost // Only draggable if common destination is not active or is host
           }).addTo(map);
           
           startMarker.on('dragend', function(e) {
@@ -573,7 +637,7 @@ function setupLocationPicker(inputId, markerId) {
           endMarker.setLatLng([lat, lng]);
         } else {
           endMarker = L.marker([lat, lng], {
-            draggable: true
+            draggable: !commonDestinationActive || isHost // Only draggable if common destination is not active or is host
           }).addTo(map);
           
           endMarker.on('dragend', function(e) {
@@ -583,13 +647,14 @@ function setupLocationPicker(inputId, markerId) {
           });
         }
         
-        // If host is setting end point and common destination is active, update it
-        if (isHost && hasCommonDestination) {
+        // If host is setting end point and common destination is active, update it for all
+        if (isHost && commonDestinationActive) {
           commonDestination = { lat, lng };
           socket.emit("set-common-destination", {
             sessionCode: currentSession,
             hostId: userId,
-            destination: { lat, lng }
+            destination: { lat, lng },
+            active: commonDestinationActive
           });
         }
       }
@@ -607,6 +672,7 @@ setupLocationPicker('endLocationPicker', 'end');
 
 // Set current location as start point
 document.getElementById('setCurrentLocationAsStart').addEventListener('click', () => {
+  // Always allow setting current location as start point
   if (userLat && userLng) {
     document.getElementById('startLocation').value = 'My Location';
     
@@ -614,7 +680,7 @@ document.getElementById('setCurrentLocationAsStart').addEventListener('click', (
       startMarker.setLatLng([userLat, userLng]);
     } else {
       startMarker = L.marker([userLat, userLng], {
-        draggable: true
+        draggable: !commonDestinationActive || isHost // Only draggable if common destination is not active or is host
       }).addTo(map);
       
       startMarker.on('dragend', function(e) {
@@ -630,14 +696,42 @@ document.getElementById('setCurrentLocationAsStart').addEventListener('click', (
 
 // Navigation controls
 document.getElementById('startNavigation').addEventListener('click', () => {
-  if (startMarker && endMarker) {
+  if (commonDestinationActive && !isHost) {
+    // For non-hosts in common destination mode, always use current location as start
+    if (userLat && userLng && commonDestination) {
+      if (startMarker) {
+        startMarker.setLatLng([userLat, userLng]);
+      } else {
+        startMarker = L.marker([userLat, userLng], {
+          draggable: false
+        }).addTo(map);
+      }
+      
+      if (endMarker) {
+        endMarker.setLatLng([commonDestination.lat, commonDestination.lng]);
+      } else {
+        endMarker = L.marker([commonDestination.lat, commonDestination.lng], {
+          draggable: false
+        }).addTo(map);
+      }
+      
+      document.getElementById('startLocation').value = 'My Location';
+      document.getElementById('endLocation').value = 'Common Destination';
+      
+      updateRoute();
+    } else {
+      showToast("Waiting for host to set a destination", 3000);
+    }
+  } else if (startMarker && endMarker) {
     updateRoute();
+  } else {
+    showToast("Please set both start and end points", 3000);
   }
 });
 
 document.getElementById('clearRoute').addEventListener('click', () => {
-  // Don't allow clearing if common destination is set and user is not host
-  if (hasCommonDestination && !isHost) {
+  // Don't allow clearing if common destination is active and user is not host
+  if (commonDestinationActive && !isHost) {
     showToast("The host has set a common destination for all members", 3000);
     return;
   }
@@ -647,18 +741,59 @@ document.getElementById('clearRoute').addEventListener('click', () => {
     routingControl = null;
   }
   
-  if (startMarker) {
+  if (startMarker && (!commonDestinationActive || isHost)) {
     map.removeLayer(startMarker);
     startMarker = null;
     document.getElementById('startLocation').value = '';
   }
   
-  if (endMarker) {
+  if (endMarker && (!commonDestinationActive || isHost)) {
     map.removeLayer(endMarker);
     endMarker = null;
     document.getElementById('endLocation').value = '';
   }
 });
+
+// Host-only common destination toggle
+if (document.getElementById('commonDestinationToggle')) {
+  document.getElementById('commonDestinationToggle').addEventListener('change', function() {
+    if (!isHost) return;
+    
+    commonDestinationActive = this.checked;
+    
+    if (commonDestinationActive) {
+      // If toggle is turned on but no destination is set
+      if (!commonDestination && endMarker) {
+        commonDestination = endMarker.getLatLng();
+      }
+      
+      if (commonDestination) {
+        socket.emit("set-common-destination", {
+          sessionCode: currentSession,
+          hostId: userId,
+          destination: commonDestination,
+          active: true
+        });
+        showToast("Common destination mode activated for all members", 3000);
+      } else {
+        showToast("Please set a destination first", 3000);
+        this.checked = false;
+        commonDestinationActive = false;
+      }
+    } else {
+      // If toggle is turned off, keep the destination but deactivate common mode
+      if (commonDestination) {
+        socket.emit("set-common-destination", {
+          sessionCode: currentSession,
+          hostId: userId,
+          destination: commonDestination,
+          active: false
+        });
+        showToast("Common destination mode deactivated", 3000);
+      }
+    }
+  });
+}
 
 // Host-only common destination controls
 if (document.getElementById('setCommonDestination')) {
@@ -667,12 +802,19 @@ if (document.getElementById('setCommonDestination')) {
     
     if (endMarker) {
       const pos = endMarker.getLatLng();
+      commonDestination = pos;
       socket.emit("set-common-destination", {
         sessionCode: currentSession,
         hostId: userId,
-        destination: pos
+        destination: pos,
+        active: commonDestinationActive
       });
       showToast("Common destination set for all members", 3000);
+      
+      // If toggle is on, make sure it stays on
+      if (document.getElementById('commonDestinationToggle')) {
+        document.getElementById('commonDestinationToggle').checked = commonDestinationActive;
+      }
     } else {
       showToast("Please select a destination first", 3000);
     }
@@ -687,9 +829,40 @@ if (document.getElementById('clearCommonDestination')) {
       sessionCode: currentSession,
       hostId: userId
     });
+    
+    commonDestination = null;
+    hasCommonDestination = false;
+    commonDestinationActive = false;
+    
+    // Update toggle state
+    if (document.getElementById('commonDestinationToggle')) {
+      document.getElementById('commonDestinationToggle').checked = false;
+    }
+    
     showToast("Common destination cleared", 3000);
   });
 }
+
+// Mobile panel toggles
+document.getElementById('navigationToggle').addEventListener('click', () => {
+  document.body.classList.toggle('navigation-collapsed');
+  const icon = document.querySelector('#navigationToggle i');
+  if (document.body.classList.contains('navigation-collapsed')) {
+    icon.className = 'fas fa-chevron-up';
+  } else {
+    icon.className = 'fas fa-chevron-down';
+  }
+});
+
+document.getElementById('membersToggle').addEventListener('click', () => {
+  document.body.classList.toggle('members-collapsed');
+  const icon = document.querySelector('#membersToggle i');
+  if (document.body.classList.contains('members-collapsed')) {
+    icon.className = 'fas fa-chevron-down';
+  } else {
+    icon.className = 'fas fa-chevron-up';
+  }
+});
 
 // Recenter map to user's location
 document.getElementById('recenterButton').addEventListener('click', () => {

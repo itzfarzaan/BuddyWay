@@ -367,6 +367,196 @@ body:not(.is-host) .non-host-only {
   display: block;
 }
 
+/* Toggle switch for common destination */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  margin-right: 10px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: #4285f4;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Improved mobile responsiveness */
+@media screen and (max-width: 768px) {
+  .navigation-container, .session-info {
+    width: 100%;
+    max-width: 100%;
+    top: 0;
+    left: 0;
+    right: 0;
+    border-radius: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .navigation-container {
+    position: fixed;
+    top: 0;
+    z-index: 1001;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  
+  .session-info {
+    position: fixed;
+    bottom: 0;
+    top: auto;
+    max-height: 30vh;
+    overflow-y: auto;
+    z-index: 1001;
+  }
+  
+  #map {
+    margin-top: 50vh;
+    height: 50vh;
+  }
+  
+  #recenterButton {
+    bottom: 32vh;
+  }
+  
+  .search-box {
+    padding: 10px;
+  }
+  
+  .input-group input {
+    padding: 8px 40px 8px 10px;
+    font-size: 13px;
+  }
+  
+  .nav-button {
+    padding: 8px;
+    font-size: 13px;
+  }
+  
+  /* Collapsible panels for mobile */
+  .navigation-container .search-box {
+    position: relative;
+  }
+  
+  .navigation-container .search-box::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(0,0,0,0.1));
+    pointer-events: none;
+  }
+  
+  .session-info .session-members {
+    max-height: 25vh;
+    overflow-y: auto;
+  }
+  
+  /* Toggle button to show/hide panels on mobile */
+  .panel-toggle {
+    display: block;
+    position: absolute;
+    right: 10px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 1002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  
+  .navigation-toggle {
+    top: 50vh;
+    transform: translateY(-50%);
+  }
+  
+  .members-toggle {
+    bottom: 30vh;
+    transform: translateY(50%);
+  }
+  
+  /* Collapsed state */
+  .navigation-collapsed .navigation-container {
+    transform: translateY(-95%);
+  }
+  
+  .members-collapsed .session-info {
+    transform: translateY(95%);
+  }
+  
+  .navigation-container, .session-info {
+    transition: transform 0.3s ease;
+  }
+}
+
+/* Adjust for very small screens */
+@media screen and (max-width: 480px) {
+  .button-group {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .common-destination-buttons {
+    flex-direction: row;
+  }
+  
+  .member-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
 /* Styles for member route lines */
 .member-route {
   opacity: 0.8;
