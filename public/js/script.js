@@ -28,6 +28,15 @@ const memberRoutes = {};
 const memberColors = {};
 let colorIndex = 1;
 
+// Function to get or assign color for a member
+function getMemberColor(memberId) {
+  if (!memberColors[memberId]) {
+    memberColors[memberId] = `color-${colorIndex}`;
+    colorIndex = (colorIndex % 6) + 1; // Cycle through 6 colors
+  }
+  return memberColors[memberId];
+}
+
 // Common destination
 let hasCommonDestination = false;
 let commonDestination = null;
@@ -394,7 +403,7 @@ socket.on("user-disconnected", (id) => {
     
     // Remove any routes for this member
     if (memberRoutes[id]) {
-      map.removeControl(memberRoutes[id]);
+      map.removeControl(memberRoutes[id].control);
       delete memberRoutes[id];
     }
     
@@ -466,6 +475,20 @@ socket.on("common-destination-update", (data) => {
         
         // Update route
         updateRoute();
+        
+        // Display all member routes when common destination is active
+        Object.keys(memberRoutes).forEach(memberId => {
+          if (memberId !== userId) {
+            displayMemberRoute(memberId);
+          }
+        });
+      } else {
+        // Hide all member routes when common destination is not active
+        Object.keys(memberRoutes).forEach(memberId => {
+          if (memberId !== userId) {
+            removeMemberRoute(memberId);
+          }
+        });
       }
     } else {
       // For host, update the toggle state
@@ -499,6 +522,21 @@ socket.on("common-destination-update", (data) => {
       
       // Update end location input
       document.getElementById('endLocation').value = 'Common Destination';
+      
+      // Display or hide member routes based on active state
+      if (commonDestinationActive) {
+        Object.keys(memberRoutes).forEach(memberId => {
+          if (memberId !== userId) {
+            displayMemberRoute(memberId);
+          }
+        });
+      } else {
+        Object.keys(memberRoutes).forEach(memberId => {
+          if (memberId !== userId) {
+            removeMemberRoute(memberId);
+          }
+        });
+      }
     }
   } else {
     // Common destination cleared
@@ -536,6 +574,96 @@ socket.on("common-destination-update", (data) => {
     }
   }
 });
+
+// Handle member route updates
+socket.on("member-route-update", (data) => {
+  if (data.sessionCode !== currentSession) return;
+  
+  const { userId, hasRoute, startPoint, endPoint } = data;
+  
+  // Skip our own routes as we already display them
+  if (userId === socket.id) return;
+  
+  console.log("Received route update from:", userId, "hasRoute:", hasRoute);
+  
+  // If the member has a route
+  if (hasRoute && startPoint && endPoint) {
+    // Create or update route for this member
+    if (!memberRoutes[userId]) {
+      memberRoutes[userId] = {
+        start: startPoint,
+        end: endPoint,
+        control: null
+      };
+    } else {
+      memberRoutes[userId].start = startPoint;
+      memberRoutes[userId].end = endPoint;
+    }
+    
+    // Only show other member routes if common destination is active
+    if (commonDestinationActive || (isHost && hasCommonDestination)) {
+      displayMemberRoute(userId);
+    }
+  } else {
+    // Remove route for this member
+    removeMemberRoute(userId);
+  }
+});
+
+// Function to display a member's route
+function displayMemberRoute(memberId) {
+  const route = memberRoutes[memberId];
+  if (!route || !route.start || !route.end) return;
+  
+  // Remove existing route control if any
+  if (route.control) {
+    map.removeControl(route.control);
+    route.control = null;
+  }
+  
+  // Get color for this member
+  const colorClass = getMemberColor(memberId);
+  const colorMatch = colorClass.match(/color-(\d+)/);
+  let routeColor = '#4285f4'; // Default blue
+  
+  // Map color class to hex color
+  if (colorMatch) {
+    const colorMap = {
+      '1': '#4285f4', // Blue
+      '2': '#ea4335', // Red
+      '3': '#fbbc05', // Yellow
+      '4': '#34a853', // Green
+      '5': '#9c27b0', // Purple
+      '6': '#ff9800'  // Orange
+    };
+    routeColor = colorMap[colorMatch[1]] || routeColor;
+  }
+  
+  // Create route control
+  route.control = L.Routing.control({
+    waypoints: [
+      L.latLng(route.start.lat, route.start.lng),
+      L.latLng(route.end.lat, route.end.lng)
+    ],
+    routeWhileDragging: false,
+    addWaypoints: false,
+    draggableWaypoints: false,
+    fitSelectedRoutes: false,
+    lineOptions: {
+      styles: [{ color: routeColor, weight: 4, opacity: 0.7 }]
+    },
+    show: false
+  }).addTo(map);
+}
+
+// Function to remove a member's route
+function removeMemberRoute(memberId) {
+  const route = memberRoutes[memberId];
+  if (route && route.control) {
+    map.removeControl(route.control);
+    route.control = null;
+  }
+}
 
 // Copy session code to clipboard
 document.getElementById('copySessionCode').addEventListener('click', () => {
@@ -826,6 +954,13 @@ if (document.getElementById('commonDestinationToggle')) {
           active: true
         });
         showToast("Common destination mode activated for all members", 3000);
+        
+        // Display all member routes when common destination is activated
+        Object.keys(memberRoutes).forEach(memberId => {
+          if (memberId !== userId) {
+            displayMemberRoute(memberId);
+          }
+        });
       } else {
         showToast("Please set a destination first", 3000);
         this.checked = false;
@@ -841,6 +976,13 @@ if (document.getElementById('commonDestinationToggle')) {
           active: false
         });
         showToast("Common destination mode deactivated", 3000);
+        
+        // Hide all member routes when common destination is deactivated
+        Object.keys(memberRoutes).forEach(memberId => {
+          if (memberId !== userId) {
+            removeMemberRoute(memberId);
+          }
+        });
       }
     }
   });

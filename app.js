@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express()
-const path = require("path");
+const port = 8002;const path = require("path");
 const cors = require("cors");
 const fs = require("fs");
 app.use(cors());
@@ -279,6 +279,22 @@ io.on("connection", function (socket) {
       });
     }
   });
+  
+  // Handle member route sharing
+  socket.on("member-has-route", function (data) {
+    const { sessionCode, userId, hasRoute, startPoint, endPoint } = data;
+    
+    if (!sessions[sessionCode]) return;
+    
+    // Broadcast route information to all members in the session
+    io.to(sessionCode).emit("member-route-update", {
+      sessionCode,
+      userId,
+      hasRoute,
+      startPoint,
+      endPoint
+    });
+  });
 
   // Set common destination for all members in a session
   socket.on("set-common-destination", function (data) {
@@ -427,17 +443,7 @@ app.get("/map", (req, res) => {
   res.render("index");
 });
 
-// Parse command line arguments for port
-const args = process.argv.slice(2);
-let port = process.env.PORT || 8002;
-
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--port' && i + 1 < args.length) {
-    port = parseInt(args[i + 1], 10);
-    break;
-  }
-}
-
-server.listen(port, () => {
-  console.log(`BuddyWay server started on port ${port}`);
+const PORT = process.env.PORT || 8002;
+server.listen(PORT, () => {
+  console.log(`BuddyWay server started on port ${PORT}`);
 });
