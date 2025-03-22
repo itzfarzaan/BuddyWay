@@ -26,6 +26,8 @@ const io = socketio(server, {
 // Session management
 const sessions = {};
 const SESSION_FILE = path.join(__dirname, 'sessions.json');
+const sessionLocations = {};
+const sessionRoutes = {};
 
 // Load sessions from file if exists
 try {
@@ -191,6 +193,42 @@ io.on("connection", function (socket) {
         name: userName
       });
       
+      // Send all existing member locations to the new user
+      if (sessionLocations[sessionCode]) {
+        // Send each stored location to the new user
+        Object.values(sessionLocations[sessionCode]).forEach(location => {
+          // Don't send the user's own location back to them
+          if (location.id !== userId) {
+            socket.emit("receive-location", {
+              sessionCode,
+              id: location.id,
+              latitude: location.latitude,
+              longitude: location.longitude,
+              name: location.name
+            });
+          }
+        });
+      }
+      
+      // Send all existing routes to the new user
+      if (sessionRoutes[sessionCode]) {
+        // Send each stored route to the new user
+        Object.values(sessionRoutes[sessionCode]).forEach(route => {
+          // Don't send the user's own routes back to them
+          if (route.userId !== userId) {
+            socket.emit("member-route-update", {
+              sessionCode,
+              userId: route.userId,
+              hasRoute: route.hasRoute,
+              startPoint: route.startPoint,
+              endPoint: route.endPoint,
+              usingLiveLocation: route.usingLiveLocation,
+              targetUserId: route.targetUserId
+            });
+          }
+        });
+      }
+      
       // If there's a common destination, send it to the new member
       if (sessions[sessionCode].commonDestination) {
         console.log(`Sending common destination to new member ${userName} (${userId}):`, 
@@ -224,6 +262,16 @@ io.on("connection", function (socket) {
       // Remove member from session
       delete sessions[sessionCode].members[userId];
       
+      // Remove stored location for this user
+      if (sessionLocations[sessionCode] && sessionLocations[sessionCode][userId]) {
+        delete sessionLocations[sessionCode][userId];
+      }
+      
+      // Remove stored routes for this user
+      if (sessionRoutes[sessionCode] && sessionRoutes[sessionCode][userId]) {
+        delete sessionRoutes[sessionCode][userId];
+      }
+      
       // Leave socket room
       socket.leave(sessionCode);
       
@@ -238,6 +286,8 @@ io.on("connection", function (socket) {
       // If no members left, clean up session
       if (Object.keys(sessions[sessionCode].members).length === 0) {
         delete sessions[sessionCode];
+        delete sessionLocations[sessionCode];
+        delete sessionRoutes[sessionCode];
         console.log(`Session deleted (empty): ${sessionCode}`);
       }
       
@@ -269,6 +319,19 @@ io.on("connection", function (socket) {
     const { sessionCode, latitude, longitude, name } = data;
     
     if (sessions[sessionCode]) {
+      // Store the location in sessionLocations
+      if (!sessionLocations[sessionCode]) {
+        sessionLocations[sessionCode] = {};
+      }
+      
+      // Save this user's location
+      sessionLocations[sessionCode][socket.id] = {
+        id: socket.id,
+        latitude,
+        longitude,
+        name
+      };
+      
       // Send location only to session members
       io.to(sessionCode).emit("receive-location", { 
         sessionCode,
@@ -282,9 +345,31 @@ io.on("connection", function (socket) {
   
   // Handle member route sharing
   socket.on("member-has-route", function (data) {
-    const { sessionCode, userId, hasRoute, startPoint, endPoint } = data;
+    const { sessionCode, userId, hasRoute, startPoint, endPoint, usingLiveLocation, targetUserId } = data;
     
     if (!sessions[sessionCode]) return;
+    
+    // Store or update route information
+    if (!sessionRoutes[sessionCode]) {
+      sessionRoutes[sessionCode] = {};
+    }
+    
+    if (hasRoute) {
+      // Store the route
+      sessionRoutes[sessionCode][userId] = {
+        userId,
+        hasRoute,
+        startPoint,
+        endPoint,
+        usingLiveLocation,
+        targetUserId
+      };
+    } else {
+      // Remove the route if hasRoute is false
+      if (sessionRoutes[sessionCode][userId]) {
+        delete sessionRoutes[sessionCode][userId];
+      }
+    }
     
     // Broadcast route information to all members in the session
     io.to(sessionCode).emit("member-route-update", {
@@ -292,7 +377,9 @@ io.on("connection", function (socket) {
       userId,
       hasRoute,
       startPoint,
-      endPoint
+      endPoint,
+      usingLiveLocation,
+      targetUserId
     });
   });
 
@@ -355,8 +442,24 @@ io.on("connection", function (socket) {
     // Broadcast to all members in session
     io.to(sessionCode).emit("common-destination-update", {
       sessionCode,
-      destination: null
+      destination: null,
+      active: false
     });
+    
+    // Save sessions to file
+    saveSessions();
+  });
+  
+  // Handle common destination deactivation
+  socket.on("common-destination-deactivated", function (data) {
+    const { sessionCode } = data;
+    
+    if (!sessionCode || !sessions[sessionCode]) return;
+    
+    // Update session state
+    sessions[sessionCode].commonDestinationActive = false;
+    
+    // No need to broadcast as this is already handled by the set-common-destination event
     
     // Save sessions to file
     saveSessions();
@@ -372,6 +475,16 @@ io.on("connection", function (socket) {
         
         // Remove from session
         delete sessions[sessionCode].members[socket.id];
+        
+        // Remove stored location for this user
+        if (sessionLocations[sessionCode] && sessionLocations[sessionCode][socket.id]) {
+          delete sessionLocations[sessionCode][socket.id];
+        }
+        
+        // Remove stored routes for this user
+        if (sessionRoutes[sessionCode] && sessionRoutes[sessionCode][socket.id]) {
+          delete sessionRoutes[sessionCode][socket.id];
+        }
         
         // Notify others
         io.to(sessionCode).emit("user-disconnected", socket.id);
@@ -400,6 +513,15 @@ io.on("connection", function (socket) {
           
           // Keep session alive for 5 minutes if empty
           sessions[sessionCode].expiresAt = Date.now() + (5 * 60 * 1000); // 5 minutes
+          
+          // Also mark location and route data for cleanup, but don't delete immediately
+          // to allow for reconnections
+          if (sessionLocations[sessionCode]) {
+            sessionLocations[sessionCode].expiresAt = sessions[sessionCode].expiresAt;
+          }
+          if (sessionRoutes[sessionCode]) {
+            sessionRoutes[sessionCode].expiresAt = sessions[sessionCode].expiresAt;
+          }
         }
         
         // Save sessions to file

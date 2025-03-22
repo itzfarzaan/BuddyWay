@@ -295,22 +295,40 @@ html, body {
 /* Toast notification */
 .toast {
   position: fixed;
-  bottom: 30px;
+  top: 20px;
   left: 50%;
-  transform: translateX(-50%) translateY(100px);
-  background: rgba(0, 0, 0, 0.8);
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 12px 24px;
+  padding: 10px 20px;
   border-radius: 4px;
-  font-size: 14px;
   z-index: 2000;
+  font-size: 14px;
+  max-width: 80%;
+  text-align: center;
   opacity: 0;
-  transition: all 0.3s;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .toast.show {
-  transform: translateX(-50%) translateY(0);
   opacity: 1;
+}
+
+@media screen and (max-width: 768px) {
+  /* Improved toast for mobile */
+  .toast {
+    bottom: 80px;
+    top: auto;
+    width: 90%;
+    max-width: none;
+    background-color: rgba(0, 0, 0, 0.9);
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
 }
 
 /* New styles for the added features */
@@ -443,12 +461,14 @@ input:checked + .toggle-slider:before {
     width: 100%;
     max-width: 100%;
     z-index: 1001;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, max-height 0.3s ease;
     background: white;
     border-bottom: 1px solid #ddd;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    max-height: 50vh;
+    max-height: 60vh;
     overflow-y: auto;
+    padding-bottom: 10px;
+    border-radius: 0 0 16px 16px;
   }
   
   /* Members panel styling */
@@ -461,21 +481,24 @@ input:checked + .toggle-slider:before {
     width: 100%;
     max-width: 100%;
     z-index: 1001;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, max-height 0.3s ease;
     background: white;
     border-top: 1px solid #ddd;
     box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-    max-height: 40vh;
+    max-height: 50vh;
     overflow-y: auto;
+    border-radius: 16px 16px 0 0;
   }
   
   /* Collapsed state */
   .navigation-collapsed .navigation-container {
-    transform: translateY(-90%);
+    transform: translateY(-92%);
+    max-height: 70vh;
   }
   
   .members-collapsed .session-info {
-    transform: translateY(90%);
+    transform: translateY(92%);
+    max-height: 70vh;
   }
   
   /* Toggle buttons */
@@ -484,15 +507,25 @@ input:checked + .toggle-slider:before {
     position: fixed;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     background: white;
     border: none;
     border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     z-index: 1002;
-    font-size: 14px;
+    font-size: 16px;
     cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .panel-toggle:active {
+    transform: scale(0.95);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  
+  .panel-toggle .toggle-label {
+    display: none;
   }
   
   .navigation-toggle {
@@ -505,28 +538,112 @@ input:checked + .toggle-slider:before {
     right: 10px;
   }
   
-  /* Adjust recenter button position */
+  /* Improved toggle buttons with labels */
+  .panel-toggle {
+    width: auto;
+    height: 40px;
+    border-radius: 20px;
+    padding: 0 16px;
+    gap: 8px;
+  }
+  
+  .panel-toggle .toggle-label {
+    display: inline;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  .navigation-toggle {
+    top: 10px;
+    right: 10px;
+  }
+  
+  .members-toggle {
+    bottom: 10px;
+    right: 10px;
+  }
+  
+  /* Adjust recenter button to match new style */
   #recenterButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: 40px;
+    border-radius: 20px;
+    padding: 0 16px;
+    bottom: 10px;
+    left: 10px;
+    right: auto;
+  }
+  
+  #recenterButton::after {
+    content: "Recenter";
+    margin-left: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  /* Ensure Leaflet controls are visible with new button positions */
+  .leaflet-control-container .leaflet-bottom.leaflet-right {
     bottom: 60px;
     right: 10px;
   }
   
+  .leaflet-control-container .leaflet-bottom.leaflet-left {
+    bottom: 60px;
+    left: 10px;
+  }
+  
   /* Make panels more compact on mobile */
   .search-box {
-    padding: 10px;
+    padding: 12px;
+    margin: 0;
+    border-radius: 0 0 16px 16px;
   }
   
   .session-header {
-    padding: 10px;
+    padding: 12px;
+    border-radius: 16px 16px 0 0;
   }
   
   .session-members {
-    padding: 0 10px 10px;
+    padding: 0 12px 12px;
   }
   
   /* Ensure Leaflet controls are visible */
   .leaflet-control-container .leaflet-bottom.leaflet-right {
-    bottom: 50px;
+    bottom: 70px;
+  }
+  
+  /* Improve form elements for touch */
+  .input-group input {
+    padding: 12px 44px 12px 12px;
+    font-size: 16px;
+    height: 48px;
+  }
+  
+  .map-picker-btn, .action-btn {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .button-group button {
+    padding: 12px 16px;
+    font-size: 16px;
+    height: 48px;
+  }
+  
+  /* Improve session code display */
+  #sessionCodeDisplay {
+    font-size: 18px;
+    padding: 4px 8px;
+  }
+  
+  /* Improve member list readability */
+  .member-item {
+    padding: 10px;
+    margin-bottom: 8px;
   }
 }
 
@@ -534,16 +651,63 @@ input:checked + .toggle-slider:before {
 @media screen and (max-width: 480px) {
   .button-group {
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
+  }
+  
+  .button-group button {
+    width: 100%;
   }
   
   .toggle-container {
     flex-wrap: wrap;
+    margin-bottom: 8px;
   }
   
   .member-actions {
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .member-actions button {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  /* Stack inputs for better touch targets */
+  .input-group {
+    margin-bottom: 16px;
+  }
+  
+  /* Improve toast visibility */
+  .toast {
+    width: 90%;
+    max-width: none;
+    font-size: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+  }
+  
+  /* Ensure navigation panel has enough space */
+  .navigation-container {
+    max-height: 70vh;
+  }
+  
+  /* Ensure session info has enough space */
+  .session-info {
+    max-height: 60vh;
+  }
+  
+  /* Improve common destination controls */
+  .common-destination-controls {
+    padding: 10px;
+    margin-top: 8px;
+  }
+  
+  #commonDestinationNotification {
+    padding: 10px;
+    margin-top: 8px;
+    font-size: 14px;
   }
 }
 

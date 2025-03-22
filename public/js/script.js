@@ -11,6 +11,8 @@ let isPickingLocation = false;
 let activeInput = null;
 let startMarker = null;
 let endMarker = null;
+let isNavigating = false; // Track if user is currently navigating
+let navigatingToUserId = null; // Track which user we're navigating to, if any
 
 // Add connection debugging
 socket.on('connect', () => {
@@ -108,25 +110,32 @@ function setupLocationTracking() {
       userLat = position.coords.latitude;
       userLng = position.coords.longitude;
 
+      // Set user's own marker - this is the SINGLE source of truth for user's position
+      if (!markers[userId]) {
+        // Create marker with color if it doesn't exist
+        const colorClass = getMemberColor(userId);
+        markers[userId] = L.marker([userLat, userLng])
+          .addTo(map)
+          .bindPopup(`User: ${myName}`);
+        
+        // Add color class to marker
+        markers[userId].getElement().classList.add(colorClass);
+      } else {
+        // Update existing marker position
+        markers[userId].setLatLng([userLat, userLng]);
+      }
+
       if (firstUpdate) {
         map.setView([userLat, userLng], 16);
         firstUpdate = false;
         
-        // Set initial start location
+        // Set initial start location text (but don't create a redundant marker)
         document.getElementById('startLocation').value = 'My Location';
-        if (startMarker) {
-          startMarker.setLatLng([userLat, userLng]);
-        } else {
-          startMarker = L.marker([userLat, userLng], {
-            draggable: true
-          }).addTo(map);
-          
-          startMarker.on('dragend', function(e) {
-            const pos = e.target.getLatLng();
-            document.getElementById('startLocation').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
-            updateRoute();
-          });
-        }
+      }
+      
+      // If we have an active route and the start is user's location, update the route
+      if (isNavigating && document.getElementById('startLocation').value === 'My Location') {
+        updateRoute();
       }
 
       // Only send location if in a session
@@ -248,9 +257,13 @@ function updateMembersList() {
         if (markers[memberId]) {
           const pos = markers[memberId].getLatLng();
           
+          // Set navigating target
+          navigatingToUserId = memberId;
+          
           // Set as end point
           document.getElementById('endLocation').value = `${member.name}'s location`;
           
+          // Create or update end marker
           if (endMarker) {
             endMarker.setLatLng(pos);
           } else {
@@ -261,8 +274,19 @@ function updateMembersList() {
             endMarker.on('dragend', function(e) {
               const newPos = e.target.getLatLng();
               document.getElementById('endLocation').value = `${newPos.lat.toFixed(6)}, ${newPos.lng.toFixed(6)}`;
+              // If user manually drags the end marker, stop tracking the live location
+              navigatingToUserId = null;
               updateRoute();
             });
+          }
+          
+          // Set start point to current user location
+          document.getElementById('startLocation').value = 'My Location';
+          
+          // Remove any manually placed start marker since we'll use the live position
+          if (startMarker) {
+            map.removeLayer(startMarker);
+            startMarker = null;
           }
           
           // Update route
@@ -368,6 +392,20 @@ socket.on("receive-location", (data) => {
     markers[id].getElement().classList.add(colorClass);
     
     markers[id].getPopup().setContent(`User: ${displayName}`);
+    
+    // If we're navigating to this user, update the route with their new position
+    if (navigatingToUserId === id) {
+      updateRoute();
+    }
+    
+    // If this user has a route and common destination is active, update their route display
+    if (memberRoutes[id] && (commonDestinationActive || (isHost && hasCommonDestination))) {
+      // Update the start point if it's based on their location
+      if (memberRoutes[id].usingLiveLocation) {
+        memberRoutes[id].start = { lat: latitude, lng: longitude };
+        displayMemberRoute(id);
+      }
+    }
   } else {
     // Create marker with color
     const colorClass = getMemberColor(id);
@@ -484,11 +522,7 @@ socket.on("common-destination-update", (data) => {
         });
       } else {
         // Hide all member routes when common destination is not active
-        Object.keys(memberRoutes).forEach(memberId => {
-          if (memberId !== userId) {
-            removeMemberRoute(memberId);
-          }
-        });
+        clearAllMemberRoutes();
       }
     } else {
       // For host, update the toggle state
@@ -531,11 +565,7 @@ socket.on("common-destination-update", (data) => {
           }
         });
       } else {
-        Object.keys(memberRoutes).forEach(memberId => {
-          if (memberId !== userId) {
-            removeMemberRoute(memberId);
-          }
-        });
+        clearAllMemberRoutes();
       }
     }
   } else {
@@ -553,25 +583,22 @@ socket.on("common-destination-update", (data) => {
     if (!isHost) {
       document.getElementById('commonDestinationNotification').style.display = 'none';
       showToast("Host has cleared the common destination", 3000);
-      
-      // Clear route if it was using common destination
-      if (document.getElementById('endLocation').value === 'Common Destination') {
-        document.getElementById('endLocation').value = '';
-        if (endMarker) {
-          map.removeLayer(endMarker);
-          endMarker = null;
-        }
-        if (routingControl) {
-          map.removeControl(routingControl);
-          routingControl = null;
-        }
-      }
-      
-      // Make start marker draggable again
-      if (startMarker) {
-        startMarker.dragging.enable();
-      }
+    } else {
+      showToast("Common destination cleared", 3000);
     }
+    
+    // Clear route if it was using common destination
+    if (document.getElementById('endLocation').value === 'Common Destination') {
+      clearNavigation();
+    }
+    
+    // Make start marker draggable again
+    if (startMarker) {
+      startMarker.dragging.enable();
+    }
+    
+    // Clear all member routes
+    clearAllMemberRoutes();
   }
 });
 
@@ -579,7 +606,7 @@ socket.on("common-destination-update", (data) => {
 socket.on("member-route-update", (data) => {
   if (data.sessionCode !== currentSession) return;
   
-  const { userId, hasRoute, startPoint, endPoint } = data;
+  const { userId, hasRoute, startPoint, endPoint, usingLiveLocation, targetUserId } = data;
   
   // Skip our own routes as we already display them
   if (userId === socket.id) return;
@@ -593,11 +620,15 @@ socket.on("member-route-update", (data) => {
       memberRoutes[userId] = {
         start: startPoint,
         end: endPoint,
-        control: null
+        control: null,
+        usingLiveLocation: usingLiveLocation,
+        targetUserId: targetUserId
       };
     } else {
       memberRoutes[userId].start = startPoint;
       memberRoutes[userId].end = endPoint;
+      memberRoutes[userId].usingLiveLocation = usingLiveLocation;
+      memberRoutes[userId].targetUserId = targetUserId;
     }
     
     // Only show other member routes if common destination is active
@@ -665,6 +696,14 @@ function removeMemberRoute(memberId) {
   }
 }
 
+// Function to clear all member routes
+function clearAllMemberRoutes() {
+  Object.keys(memberRoutes).forEach(memberId => {
+    removeMemberRoute(memberId);
+  });
+  memberRoutes = {};
+}
+
 // Copy session code to clipboard
 document.getElementById('copySessionCode').addEventListener('click', () => {
   navigator.clipboard.writeText(currentSession)
@@ -710,10 +749,40 @@ document.getElementById('endSession').addEventListener('click', () => {
 
 // Navigation functionality
 function updateRoute() {
-  const start = startMarker ? startMarker.getLatLng() : null;
-  const end = endMarker ? endMarker.getLatLng() : null;
+  let start = null;
+  let end = endMarker ? endMarker.getLatLng() : null;
+
+  // If start location is set to "My Location", use the current user position
+  if (document.getElementById('startLocation').value === 'My Location') {
+    // Use the live marker position
+    if (markers[userId]) {
+      start = markers[userId].getLatLng();
+    } else if (userLat && userLng) {
+      // Fallback to tracked coordinates
+      start = L.latLng(userLat, userLng);
+    }
+  } else if (navigatingToUserId && document.getElementById('startLocation').value.includes("'s location")) {
+    // Use the live marker position of the user we're navigating from
+    if (markers[navigatingToUserId]) {
+      start = markers[navigatingToUserId].getLatLng();
+    }
+  } else if (startMarker) {
+    // Use a manually placed marker if it exists
+    start = startMarker.getLatLng();
+  }
+
+  // If end position references another user, track their live position
+  if (navigatingToUserId && document.getElementById('endLocation').value.includes("'s location")) {
+    // Always update end position to the user's current position
+    if (markers[navigatingToUserId] && endMarker) {
+      end = markers[navigatingToUserId].getLatLng();
+      endMarker.setLatLng(end);
+    }
+  }
 
   if (start && end) {
+    isNavigating = true;
+    
     if (routingControl) {
       map.removeControl(routingControl);
     }
@@ -755,6 +824,9 @@ function updateRoute() {
     
     // Share route with other members
     if (currentSession) {
+      // Check if we're using live location as start point
+      const usingLiveLocation = document.getElementById('startLocation').value === 'My Location';
+      
       // Inform others that we have a route
       socket.emit("member-has-route", {
         sessionCode: currentSession,
@@ -767,11 +839,100 @@ function updateRoute() {
         endPoint: {
           lat: end.lat,
           lng: end.lng
-        }
+        },
+        usingLiveLocation: usingLiveLocation,
+        targetUserId: navigatingToUserId
       });
     }
+  } else {
+    // If we don't have a valid route, reset navigation state
+    isNavigating = false;
+    navigatingToUserId = null;
   }
 }
+
+// Add a clear navigation function to properly clean up markers and routes
+function clearNavigation() {
+  console.log("Clearing navigation");
+  
+  // Reset navigation state
+  isNavigating = false;
+  navigatingToUserId = null;
+  
+  // Remove end marker
+  if (endMarker) {
+    map.removeLayer(endMarker);
+    endMarker = null;
+  }
+  
+  // Remove any custom start marker (but keep the live location marker)
+  if (startMarker && document.getElementById('startLocation').value !== 'My Location') {
+    map.removeLayer(startMarker);
+    startMarker = null;
+  }
+  
+  // Remove routing control
+  if (routingControl) {
+    map.removeControl(routingControl);
+    routingControl = null;
+  }
+  
+  // Clear location input fields
+  document.getElementById('startLocation').value = 'My Location';
+  document.getElementById('endLocation').value = '';
+  
+  // If this is the host and common destination was active, deactivate it
+  if (isHost && commonDestinationActive) {
+    commonDestinationActive = false;
+    if (document.getElementById('commonDestinationToggle')) {
+      document.getElementById('commonDestinationToggle').checked = false;
+    }
+    
+    // Notify server that common destination is deactivated
+    socket.emit("set-common-destination", {
+      sessionCode: currentSession,
+      hostId: userId,
+      destination: null,
+      active: false
+    });
+    
+    // Clear all member routes
+    clearAllMemberRoutes();
+  }
+  
+  // Notify other users that we no longer have a route
+  if (currentSession) {
+    socket.emit("member-has-route", {
+      sessionCode: currentSession,
+      userId: userId,
+      hasRoute: false
+    });
+  }
+  
+  showToast("Navigation cleared", 2000);
+}
+
+// Add a clear navigation button to the navigation form
+document.addEventListener('DOMContentLoaded', function() {
+  const navigationForm = document.getElementById('navigationForm');
+  
+  if (navigationForm) {
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.id = 'clearNavigation';
+    clearBtn.className = 'btn btn-danger';
+    clearBtn.innerHTML = '<i class="fas fa-times"></i> Clear Navigation';
+    clearBtn.addEventListener('click', clearNavigation);
+    
+    // Add before the existing submit button
+    const submitBtn = navigationForm.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      navigationForm.insertBefore(clearBtn, submitBtn);
+    } else {
+      navigationForm.appendChild(clearBtn);
+    }
+  }
+});
 
 // Location picker functionality
 function setupLocationPicker(inputId, markerId) {
@@ -786,7 +947,7 @@ function setupLocationPicker(inputId, markerId) {
     }
     
     // Don't allow changing start location if common destination is active (for anyone)
-    if (commonDestinationActive && markerId === 'start' && !isHost) {
+    if (commonDestinationActive && !isHost && markerId === 'start') {
       showToast("In common destination mode, your current location is always used as the starting point", 3000);
       return;
     }
@@ -797,19 +958,26 @@ function setupLocationPicker(inputId, markerId) {
       const { lat, lng } = e.latlng;
       input.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       
+      // Reset navigation tracking when manually setting locations
+      navigatingToUserId = null;
+      
       if (markerId === 'start') {
-        if (startMarker) {
-          startMarker.setLatLng([lat, lng]);
-        } else {
-          startMarker = L.marker([lat, lng], {
-            draggable: !commonDestinationActive || isHost // Only draggable if common destination is not active or is host
-          }).addTo(map);
-          
-          startMarker.on('dragend', function(e) {
-            const pos = e.target.getLatLng();
-            input.value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
-            updateRoute();
-          });
+        // Clear tracking of live location for start
+        if (document.getElementById('startLocation').value !== 'My Location') {
+          // Create or update the startMarker for manually selected points
+          if (startMarker) {
+            startMarker.setLatLng([lat, lng]);
+          } else {
+            startMarker = L.marker([lat, lng], {
+              draggable: !commonDestinationActive || isHost // Only draggable if common destination is not active or is host
+            }).addTo(map);
+            
+            startMarker.on('dragend', function(e) {
+              const pos = e.target.getLatLng();
+              input.value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+              updateRoute();
+            });
+          }
         }
       } else {
         if (endMarker) {
@@ -978,10 +1146,11 @@ if (document.getElementById('commonDestinationToggle')) {
         showToast("Common destination mode deactivated", 3000);
         
         // Hide all member routes when common destination is deactivated
-        Object.keys(memberRoutes).forEach(memberId => {
-          if (memberId !== userId) {
-            removeMemberRoute(memberId);
-          }
+        clearAllMemberRoutes();
+        
+        // Notify all members that they can now set their own destinations
+        socket.emit("common-destination-deactivated", {
+          sessionCode: currentSession
         });
       }
     }
