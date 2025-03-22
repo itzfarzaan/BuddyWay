@@ -61,24 +61,9 @@ BuddyWay is a real-time location sharing web application that allows users to cr
    - Set a common destination for all members
    - End the session when done
 
-## Configuration
-
-Environment variables can be set in a `.env` file:
-```
-PORT=8002
-SESSION_SECRET=your_secret_key
-```
-
-## Deployment
-
-The application can be deployed to any Node.js hosting platform. Here's how to deploy to Render:
-
-1. Create a new Web Service on Render
-2. Connect your GitHub repository
-3. Set the following environment variables:
-   - `PORT`: 8002
-   - `NODE_ENV`: production
-4. Deploy!
+## Note for Future Development
+- Navigation route for a user flickers a lot because of the frequent marker update of the user
+- UI changes required - specially for mobile devices
 
 ## Contributing
 
