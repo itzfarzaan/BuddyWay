@@ -13,6 +13,7 @@ let startMarker = null;
 let endMarker = null;
 let isNavigating = false; // Track if user is currently navigating
 let navigatingToUserId = null; // Track which user we're navigating to, if any
+let lastRouteUpdateTime = 0; // Track when the route was last updated
 
 // Add connection debugging
 socket.on('connect', () => {
@@ -134,8 +135,14 @@ function setupLocationTracking() {
       }
       
       // If we have an active route and the start is user's location, update the route
+      // but throttle updates to prevent flickering
+      const currentTime = Date.now();
       if (isNavigating && document.getElementById('startLocation').value === 'My Location') {
-        updateRoute();
+        // Only update if 1.5 seconds have passed since the last update
+        if (currentTime - lastRouteUpdateTime >= 1500) {
+          updateRoute();
+          lastRouteUpdateTime = currentTime;
+        }
       }
 
       // Only send location if in a session
@@ -394,8 +401,14 @@ socket.on("receive-location", (data) => {
     markers[id].getPopup().setContent(`User: ${displayName}`);
     
     // If we're navigating to this user, update the route with their new position
+    // but throttle updates to prevent flickering
+    const currentTime = Date.now();
     if (navigatingToUserId === id) {
-      updateRoute();
+      // Only update if 1.5 seconds have passed since the last update
+      if (currentTime - lastRouteUpdateTime >= 1500) {
+        updateRoute();
+        lastRouteUpdateTime = currentTime;
+      }
     }
     
     // If this user has a route and common destination is active, update their route display
@@ -403,7 +416,11 @@ socket.on("receive-location", (data) => {
       // Update the start point if it's based on their location
       if (memberRoutes[id].usingLiveLocation) {
         memberRoutes[id].start = { lat: latitude, lng: longitude };
-        displayMemberRoute(id);
+        // Only update display if enough time has passed
+        if (currentTime - lastRouteUpdateTime >= 1500) {
+          displayMemberRoute(id);
+          lastRouteUpdateTime = currentTime;
+        }
       }
     }
   } else {
@@ -844,6 +861,9 @@ function updateRoute() {
         targetUserId: navigatingToUserId
       });
     }
+    
+    // Update the last route update time
+    lastRouteUpdateTime = Date.now();
   } else {
     // If we don't have a valid route, reset navigation state
     isNavigating = false;
@@ -975,7 +995,13 @@ function setupLocationPicker(inputId, markerId) {
             startMarker.on('dragend', function(e) {
               const pos = e.target.getLatLng();
               input.value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
-              updateRoute();
+              
+              // Update route with throttling
+              const currentTime = Date.now();
+              if (currentTime - lastRouteUpdateTime >= 1500) {
+                updateRoute();
+                lastRouteUpdateTime = currentTime;
+              }
             });
           }
         }
@@ -990,7 +1016,13 @@ function setupLocationPicker(inputId, markerId) {
           endMarker.on('dragend', function(e) {
             const pos = e.target.getLatLng();
             input.value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
-            updateRoute();
+            
+            // Update route with throttling
+            const currentTime = Date.now();
+            if (currentTime - lastRouteUpdateTime >= 1500) {
+              updateRoute();
+              lastRouteUpdateTime = currentTime;
+            }
           });
         }
         
@@ -1008,7 +1040,11 @@ function setupLocationPicker(inputId, markerId) {
       
       isPickingLocation = false;
       activeInput = null;
+      
+      // This is a user-initiated action, so we always update immediately
+      // but still record the time for future throttling
       updateRoute();
+      lastRouteUpdateTime = Date.now();
     });
   });
 }
@@ -1033,11 +1069,20 @@ document.getElementById('setCurrentLocationAsStart').addEventListener('click', (
       startMarker.on('dragend', function(e) {
         const pos = e.target.getLatLng();
         document.getElementById('startLocation').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
-        updateRoute();
+        
+        // Update route with throttling
+        const currentTime = Date.now();
+        if (currentTime - lastRouteUpdateTime >= 1500) {
+          updateRoute();
+          lastRouteUpdateTime = currentTime;
+        }
       });
     }
     
+    // This is a user-initiated action, so we always update immediately
+    // but still record the time for future throttling
     updateRoute();
+    lastRouteUpdateTime = Date.now();
   }
 });
 
